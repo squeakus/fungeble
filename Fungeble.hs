@@ -1,12 +1,13 @@
 import System.Random
 import Data.List  
 import Data.Map (Map, member, (!), size, elemAt, fromList)
+import Data.Set (Set, fromList)
 import Debug.Trace
 
 -- Resets the individual since a change should occur (Could be smarter)
 mutateOp :: Population -> [Float] -> [Int] -> Population
 mutateOp [] _ _ = []
-mutateOp (ind:pop) rndDs rndIs = (GEIndividual (mutate'' (genotype ind) rndDs rndIs) "" 100 0) : mutateOp pop rndDs rndIs
+mutateOp (ind:pop) rndDs rndIs = (GEIndividual (mutate'' (genotype ind) rndDs rndIs) [] 100 0) : mutateOp pop rndDs rndIs
 
 mutate'' :: [Int] -> [Float] -> [Int] -> [Int]
 mutate'' [] _ _ = []
@@ -19,7 +20,7 @@ xoverOp :: Population -> [Float] -> Population
 xoverOp [] _ = []
 xoverOp (ind1:ind2:pop) rndDs = 
   let (child1, child2) = xover (genotype ind1,genotype ind2) rndDs
-  in (GEIndividual child1 "" 100 0): (GEIndividual child2 "" 100 0) : xoverOp pop rndDs
+  in (GEIndividual child1 [] 100 0): (GEIndividual child2 [] 100 0) : xoverOp pop rndDs
          
 xover :: ([Int], [Int]) -> [Float] -> ([Int], [Int])
 xover ([],_) _ = ([],[])
@@ -60,25 +61,25 @@ patternMatch (p:phenotype) (f:facit) = (if p /= f then 1 else 0) + patternMatch 
 
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
-patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype ind) "aba") 0) : patternMatchOp pop
+patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (show (phenotype ind)) "aba") 0) : patternMatchOp pop
 
-mappingOp :: Population -> Map String [[String]] -> Population
+mappingOp :: Population -> BNFGrammar -> Population
 mappingOp [] _ = []
-mappingOp (ind:pop) grammar = (GEIndividual (genotype ind) (genotype2phenotype (genotype ind) ["S"] grammar) 100 0) : mappingOp pop grammar
+mappingOp (ind:pop) grammar = (GEIndividual (genotype ind) (genotype2phenotype (genotype ind) [startSymbol grammar] grammar) 100 0) : mappingOp pop grammar
                                        
 --Make with derivation tree? Wrapping
-genotype2phenotype :: [Int] -> [String] -> Map String [[String]] -> String
+genotype2phenotype :: [Int] -> [Symbol] -> BNFGrammar -> [Symbol]
 genotype2phenotype [] _ _ = []
-genotype2phenotype _ [] _ = [] 
+genotype2phenotype _ [] _ = []
 genotype2phenotype (c:cs) (s:ss) grammar = 
-  if (member s grammar)
-  then let rule = grammar ! s; sizeR = length rule;
+  if (member s (rules grammar))
+  then let rule = (rules grammar) ! s; sizeR = length rule;
     in --trace (show c ++ ":" ++ s ++ ":" ++ show rule ++ ":" ++ show ss ++ ":" ++ show cs) 
        genotype2phenotype (if sizeR > 1 then cs else (c:cs)) ( (rule !! (c `mod` sizeR) ) ++ ss) grammar 
   else --trace (show c ++ ":" ++ s) 
-       s ++ genotype2phenotype (c:cs) ss grammar
+       s : genotype2phenotype (c:cs) ss grammar
 
-evolve :: Population -> [Int] -> Int -> [Float] -> Map String [[String]] -> Population
+evolve :: Population -> [Int] -> Int -> [Float] -> BNFGrammar -> Population
 evolve pop _ 0 _ _ = []
 evolve [] _ _ _ _ = error "Empty population"
 evolve pop rndIs gen rndDs grammar = maximumInd pop : evolve (
@@ -117,14 +118,15 @@ main = do
   print $ take 5 randNumberD
   print $ mutate'' cs randNumberD randNumber
   print $ xover (cs, [200..204]) randNumberD
-  let pop = [GEIndividual [1..10] "" 0 0, GEIndividual [2..11] "" 0 0]
+  let pop = [GEIndividual [1..10] [] 0 0, GEIndividual [2..11] [] 0 0]
   print $ tournamentSelection (length pop) pop randNumber 3
-  let newPop = [GEIndividual [1..10] "" 0 0, GEIndividual [2..11] "" 0 0]
+  let newPop = [GEIndividual [1..10] [] 0 0, GEIndividual [2..11] [] 0 0]
   print $ generationalReplacement pop newPop 2
-  let grammar = fromList [ ("S", [["S","B"], ["B"]]), ("B", [["a"],["b"]])]; wraps = 2
-  let phen = genotype2phenotype (take (wraps * length cs) (cycle cs)) ["S"] grammar
+  let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
+  let grammar = (BNFGrammar ts nts (Data.Map.fromList [ ((NonTerminal "S"), [[(NonTerminal "S"), (NonTerminal "B")], [(NonTerminal "B")]]), ((NonTerminal "B"), [[(Terminal "a")],[(Terminal "b")]])]) s); wraps = 2
+  let phen = genotype2phenotype (take (wraps * length cs) (cycle cs)) [startSymbol grammar] grammar
   print $ phen
-  print $ patternMatch phen "aa"
+  print $ patternMatch (show phen) "aa"
   print $ evolve pop randNumber 10 randNumberD grammar
 
 {- 
@@ -133,15 +135,27 @@ B -> a | b
 -}
 
 data GEIndividual = GEIndividual { genotype :: [Int]
-                                 , phenotype :: String
+                                 , phenotype :: [Symbol]
                                  , fitness :: Int
                                  , usedCodons :: Int
                                  } deriving (Show, Eq)
 
 type Population = [GEIndividual]
 
+type Terminal s = s
+type NonTerminal s = s
+type Production = [Symbol]
+data Symbol = Terminal String| NonTerminal String deriving (Show, Eq, Ord)
+
+data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
+                             , nonTerminals :: Set (NonTerminal String)
+                             , rules :: Map (Symbol) [Production]
+                             , startSymbol :: (Symbol)
+                             } deriving (Show, Eq)
+
 --TODO
 --Generalise functions, use HOFs, e.g. operat function
 --Parse text file
 --More operators
 --Documentation
+--Use Maybe
