@@ -193,4 +193,4 @@ data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
 --Minimize instead of Maximize
 --Problem where code is generated
 --Test parallelization
---put op in front of generational and tournament
+--Put op in front of generational and tournament
