@@ -1,0 +1,15 @@
+--TODO
+use the create population function instead of just defining 2 individuals
+--Generalise functions, use HOFs, e.g. operate function
+--Functions for creating and reseting individuals
+--Parse text file
+--More operators
+--Documentation
+--Use Maybe
+--Compare for GEIndividual
+--Difference between type and data
+--Show for symbols
+--Minimize instead of Maximize
+--Problem where code is generated
+--Test parallelization
+--Put op in front of generational and tournament

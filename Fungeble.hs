@@ -4,11 +4,17 @@ import Data.Map (Map, member, (!), size, elemAt, fromList)
 import Data.Set (Set, fromList)
 import Debug.Trace
 
+
+{-properties-}
+defaultFitness = 100
+popSize = 100
+chromosomeSize = 5
+
 {- Calls mutate on the population. Resets the individual since a
  change should occur. TODO (Could be smarter an verify if a reset is needed)-}
 mutateOp :: Population -> [Float] -> [Int] -> Population
 mutateOp [] _ _ = []
-mutateOp (ind:pop) rndDs rndIs = (GEIndividual (mutate'' (genotype ind) rndDs rndIs) [] 100 0) : mutateOp pop rndDs rndIs
+mutateOp (ind:pop) rndDs rndIs = (createIndiv (mutate'' (genotype ind) rndDs rndIs)) : mutateOp pop rndDs rndIs
 
 {- Mutate a genotype by uniformly changing the integer. TODO The
  mutation value is hard coded -}
@@ -24,7 +30,7 @@ xoverOp :: Population -> [Float] -> Population
 xoverOp [] _ = []
 xoverOp (ind1:ind2:pop) rndDs = 
   let (child1, child2) = xover (genotype ind1,genotype ind2) rndDs
-  in (GEIndividual child1 [] 100 0): (GEIndividual child2 [] 100 0) : xoverOp pop rndDs
+  in (createIndiv child1): (createIndiv child2) : xoverOp pop rndDs
 xoverOp (ind1:[]) rndDs = [ind1]         
 
 {- Singlepoint crossover, crossover porbability is hardcoded-}
@@ -80,6 +86,16 @@ mappingOp :: Population -> BNFGrammar -> Population
 mappingOp [] _ = []
 mappingOp (ind:pop) grammar = (GEIndividual (genotype ind) (genotype2phenotype (genotype ind) [startSymbol grammar] grammar) 100 0) : mappingOp pop grammar
                                        
+{-Makes an individual with default values-}
+createIndiv :: [Int] -> GEIndividual
+createIndiv [] = error "creating individual with an empty chromosome"
+createIndiv xs = GEIndividual xs [] defaultFitness 0
+
+{-creates an array of individuals with random genotypes-}
+createPop :: Int -> [Int] -> Population
+createPop 0 _ = []
+createPop popCnt rndInts = createIndiv (take chromosomeSize rndInts) : createPop (popCnt-1) (drop chromosomeSize rndInts)
+                           
 {- Map genotype to phenotype (input to output) via the grammar TODO
  Make with derivation tree?-}
 genotype2phenotype :: [Int] -> [Symbol] -> BNFGrammar -> [Symbol]
@@ -140,9 +156,9 @@ main = do
   print $ take 5 randNumberD
   print $ mutate'' cs randNumberD randNumber
   print $ xover (cs, [200..204]) randNumberD
-  let pop = [GEIndividual [1..10] [] (-100) 0, GEIndividual [2..11] [] (-100) 0]
+  let pop = [createIndiv [3..10] , createIndiv [5..11]]
   print $ tournamentSelection (length pop) pop randNumber 3
-  let newPop = [GEIndividual [1..10] [] 100 0, GEIndividual [2..11] [] 100 0]
+  let newPop = [createIndiv [1..10], createIndiv [1..10]]
   print $ generationalReplacement pop newPop 2
   let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
   let grammar = (BNFGrammar ts nts (Data.Map.fromList [ ((NonTerminal "S"), [[(NonTerminal "S"), (NonTerminal "B")], [(NonTerminal "B")]]), ((NonTerminal "B"), [[(Terminal "a")],[(Terminal "b")]])]) s); wraps = 2
@@ -150,18 +166,25 @@ main = do
   print $ phen
   print $ patternMatch (show phen) "aa"
   print $ evolve pop randNumber 10 randNumberD grammar
-
+  print $ "look at my pop!"
+  print $ createPop 3 randNumber
 {- Grammar used
 S -> SB | B
 B -> a | b
 -}
 
 {- Data for GEIndividual -}
+--data Individual = GEIndividual [Int]  
+--                  | GEIndividual [Int] [Symbol] 
+--                  | GEIndividual [Int] [Symbol] Int
+--                  | GEIndividual [Int] [Symbol] Int Int 
+  
 data GEIndividual = GEIndividual { genotype :: [Int]
                                  , phenotype :: [Symbol]
                                  , fitness :: Int
                                  , usedCodons :: Int
                                  } deriving (Show, Eq)
+                                            
 {- Type for population-}
 type Population = [GEIndividual]
 
@@ -179,6 +202,7 @@ data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
                              , rules :: Map (Symbol) [Production]
                              , startSymbol :: (Symbol)
                              } deriving (Show, Eq)
+
 
 --TODO
 --Generalise functions, use HOFs, e.g. operate function
