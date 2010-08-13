@@ -9,6 +9,7 @@ import Debug.Trace
 defaultFitness = 100
 popSize = 100
 chromosomeSize = 5
+target = "abc"
 
 {- Calls mutate on the population. Resets the individual since a
  change should occur. TODO (Could be smarter an verify if a reset is needed)-}
@@ -77,7 +78,7 @@ patternMatch (p:phenotype) (f:target) = (if p /= f then 1 else 0) + patternMatch
 {- Pattern matches the population. String target is hardcoded-}
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
-patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (show (phenotype ind)) "aba") 0) : patternMatchOp pop
+patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (show (phenotype ind)) target) 0) : patternMatchOp pop
 
 {- Mapping the entire population. Default fitness is hardcoded. TODO
  Wrapping is done by increasing the size of the input explicitly by
@@ -108,7 +109,7 @@ genotype2phenotype (c:cs) (s:ss) grammar =
        genotype2phenotype (if sizeR > 1 then cs else (c:cs)) ( (rule !! (c `mod` sizeR) ) ++ ss) grammar 
   else --trace (show c ++ ":" ++ s) 
        s : genotype2phenotype (c:cs) ss grammar
-       
+
 {- Evolve the population recursively counting with genptype and
 returning a population of the best individuals of each
 generation. Hard coding tournament size and elite size-}
@@ -163,21 +164,22 @@ main = do
   let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
   let grammar = (BNFGrammar ts nts (Data.Map.fromList [ ((NonTerminal "S"), [[(NonTerminal "S"), (NonTerminal "B")], [(NonTerminal "B")]]), ((NonTerminal "B"), [[(Terminal "a")],[(Terminal "b")]])]) s); wraps = 2
   let phen = genotype2phenotype (take (wraps * length cs) (cycle cs)) [startSymbol grammar] grammar
+  print "Hello"
   print $ phen
-  print $ patternMatch (show phen) "aa"
+  print $ patternMatch (show phen) target
+  print "goodbye!"
+  print "test2"
+  let tmpInd = createIndiv[5..11]
+  let testIndividual =  (GEIndividual (genotype tmpInd) (genotype2phenotype (genotype tmpInd) [startSymbol grammar] grammar) 100 0)
+  let pop2 = patternMatchOp [testIndividual]
+  print "end"
   print $ evolve pop randNumber 10 randNumberD grammar
-  print $ "look at my pop!"
-  print $ createPop 3 randNumber
+  --print $ "look at my pop!"
+  --print $ createPop 3 randNumber
 {- Grammar used
 S -> SB | B
 B -> a | b
 -}
-
-{- Data for GEIndividual -}
---data Individual = GEIndividual [Int]  
---                  | GEIndividual [Int] [Symbol] 
---                  | GEIndividual [Int] [Symbol] Int
---                  | GEIndividual [Int] [Symbol] Int Int 
   
 data GEIndividual = GEIndividual { genotype :: [Int]
                                  , phenotype :: [Symbol]
@@ -204,17 +206,4 @@ data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
                              } deriving (Show, Eq)
 
 
---TODO
---Generalise functions, use HOFs, e.g. operate function
---Functions for creating and reseting individuals
---Parse text file
---More operators
---Documentation
---Use Maybe
---Compare for GEIndividual
---Difference between type and data
---Show for symbols
---Minimize instead of Maximize
---Problem where code is generated
---Test parallelization
---Put op in front of generational and tournament
+
