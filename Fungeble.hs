@@ -9,15 +9,11 @@ import Debug.Trace
 defaultFitness = 100
 popSize = 100
 chromosomeSize = 5
-<<<<<<< HEAD
-target = "abc"
-=======
 mutationRate = 0.1
 crossoverRate = 0.7
-patternMatchTarget = "aba"
+patternMatchTarget = "abc"
 tournamentSize = 3
 eliteSize = 1
->>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
 
 {- Calls mutate on the population. Resets the individual since a
  change should occur. TODO (Could be smarter an verify if a reset is needed)-}
@@ -82,16 +78,12 @@ generationalReplacement orgPop newPop elites = (take elites $ sortBy sortInd org
 patternMatch :: String -> String -> Int
 patternMatch [] target = length target
 patternMatch phenotype [] = length phenotype
-patternMatch (p:phenotype) (f:target) = (if p /= f then 1 else 0) + patternMatch phenotype target
+patternMatch (p:phenotype) (f:target) = trace (show [p]++[f]) (if p /= f then 1 else 0) + patternMatch phenotype target
 
 {- Pattern matches the population. String target is hardcoded-}
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
-<<<<<<< HEAD
-patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (show (phenotype ind)) target) 0) : patternMatchOp pop
-=======
-patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
->>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
+patternMatchOp (ind:pop) = trace(show "matching indiv") (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
 
 {- Mapping the entire population. Default fitness is hardcoded. TODO
  Wrapping is done by increasing the size of the input explicitly by
@@ -173,36 +165,22 @@ main = do
   let randNumberD = randomRs (0,1) gen :: [Float]
   let cs = [100..104]
   print $ take 5 randNumberD
-  print $ mutate'' cs randNumberD randNumber
-  print $ xover (cs, [200..204]) randNumberD
-  let pop = [createIndiv [3..10] , createIndiv [5..11]]
+  --print $ mutate'' cs randNumberD randNumber
+  --print $ xover (cs, [200..204]) randNumberD
+  let pop = [createIndiv [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1] , createIndiv [5..11]]
   print $ tournamentSelection (length pop) pop randNumber 3
   let newPop = [createIndiv [1..10], createIndiv [1..10]]
   print $ generationalReplacement pop newPop 2
   let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
   let grammar = (BNFGrammar ts nts (Data.Map.fromList [ ((NonTerminal "S"), [[(NonTerminal "S"), (NonTerminal "B")], [(NonTerminal "B")]]), ((NonTerminal "B"), [[(Terminal "a")],[(Terminal "b")]])]) s); wraps = 2
   let phen = genotype2phenotype (take (wraps * length cs) (cycle cs)) [startSymbol grammar] grammar
-  print "Hello"
-  print $ phen
-<<<<<<< HEAD
-  print $ patternMatch (show phen) target
-  print "goodbye!"
-  print "test2"
-  let tmpInd = createIndiv[5..11]
-  let testIndividual =  (GEIndividual (genotype tmpInd) (genotype2phenotype (genotype tmpInd) [startSymbol grammar] grammar) 100 0)
-  let pop2 = patternMatchOp [testIndividual]
-  print "end"
   print $ evolve pop randNumber 10 randNumberD grammar
+  print $ phenotype2string phen
+  print "testing patternmatch"
+  print $ patternMatch ( phenotype2string phen) "abbba"
   --print $ "look at my pop!"
   --print $ createPop 3 randNumber
-=======
-  print $ phenotype2string phen
-  print $ patternMatch (show phen) "aa"
-  print $ evolve pop randNumber 10 randNumberD grammar
-  print $ "look at my pop!"
-  print $ createPop 3 randNumber
-  print $ maximumInd (evolve pop randNumber 10 randNumberD grammar)
->>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
+  --print $ maximumInd (evolve pop randNumber 10 randNumberD grammar)
 {- Grammar used
 S -> SB | B
 B -> a | b
@@ -231,9 +209,3 @@ data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
                              , rules :: Map (Symbol) [Production]
                              , startSymbol :: (Symbol)
                              } deriving (Show, Eq)
-<<<<<<< HEAD
-
-
-
-=======
->>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
