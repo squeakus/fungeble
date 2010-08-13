@@ -9,7 +9,15 @@ import Debug.Trace
 defaultFitness = 100
 popSize = 100
 chromosomeSize = 5
+<<<<<<< HEAD
 target = "abc"
+=======
+mutationRate = 0.1
+crossoverRate = 0.7
+patternMatchTarget = "aba"
+tournamentSize = 3
+eliteSize = 1
+>>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
 
 {- Calls mutate on the population. Resets the individual since a
  change should occur. TODO (Could be smarter an verify if a reset is needed)-}
@@ -23,7 +31,7 @@ mutate'' :: [Int] -> [Float] -> [Int] -> [Int]
 mutate'' [] _ _ = []
 mutate'' _ [] _ = []
 mutate'' _ _ [] = []
-mutate'' (c:cs) (rndD:rndDs) (rndI:rndIs) = (if rndD > 0.1 then c else rndI) : mutate'' cs rndDs rndIs
+mutate'' (c:cs) (rndD:rndDs) (rndI:rndIs) = (if rndD > mutationRate then c else rndI) : mutate'' cs rndDs rndIs
 
 {- Calls crossover on the population TODO How does it handle oddnumber
  sized populations? Fold? Smarter resetting values in individual-}
@@ -40,8 +48,9 @@ xover ([],_) _ = ([],[])
 xover (_,[]) _ = ([],[])
 xover (_,_) [] = error "Empty rnd"
 xover (p1,p2) (rndD:rndDs) =  
-  if rndD > 0.7
-     then let xopoint1 = xopoint rndDs p1; xopoint2 = xopoint rndDs p2
+  if rndD > crossoverRate
+     -- Remove the used random values for the rndDs for the xopoints calls
+     then let xopoint1 = xopoint rndDs p1; xopoint2 = xopoint (drop 1 rndDs) p2
           in (take xopoint1 p1 ++ drop xopoint2 p2, take xopoint2 p2 ++ drop xopoint1 p1)
      else (p1, p2)
           
@@ -78,14 +87,18 @@ patternMatch (p:phenotype) (f:target) = (if p /= f then 1 else 0) + patternMatch
 {- Pattern matches the population. String target is hardcoded-}
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
+<<<<<<< HEAD
 patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (show (phenotype ind)) target) 0) : patternMatchOp pop
+=======
+patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
+>>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
 
 {- Mapping the entire population. Default fitness is hardcoded. TODO
  Wrapping is done by increasing the size of the input explicitly by
  (take (wraps * length genotype) (cycle genotypr)) -}
 mappingOp :: Population -> BNFGrammar -> Population
 mappingOp [] _ = []
-mappingOp (ind:pop) grammar = (GEIndividual (genotype ind) (genotype2phenotype (genotype ind) [startSymbol grammar] grammar) 100 0) : mappingOp pop grammar
+mappingOp (ind:pop) grammar = (GEIndividual (genotype ind) (genotype2phenotype (genotype ind) [startSymbol grammar] grammar) defaultFitness 0) : mappingOp pop grammar
                                        
 {-Makes an individual with default values-}
 createIndiv :: [Int] -> GEIndividual
@@ -123,12 +136,12 @@ evolve pop rndIs gen rndDs grammar = maximumInd pop :
                                              mappingOp ( 
                                                 mutateOp (
                                                    xoverOp (
-                                                      tournamentSelection (length pop) pop rndIs 3) 
+                                                      tournamentSelection (length pop) pop rndIs tournamentSize) 
                                                    rndDs) 
                                                 rndDs rndIs) 
                                              grammar)
                                           ) 
-                                       1)
+                                       eliteSize)
                                      rndIs (gen - 1) rndDs grammar
                                 
 {- Utility for sorting GEIndividuals-}
@@ -138,16 +151,21 @@ sortInd ind1 ind2
   | fitness ind1 < fitness ind2 = LT
   | fitness ind1 == fitness ind2 = EQ
                               
-{- Utility for finding the maximum fitness in a Population TODO possible to shorten-}                           
-maximumInd :: Population -> GEIndividual
-maximumInd [] = error "Maximum of empty pop"
-maximumInd [ind] = ind
-maximumInd (ind:pop) = 
-  let ind2 = maximumInd pop
-  in if (fitness ind) > (fitness ind2)
-     then ind
-     else ind2
+{- Utility for finding the maximum fitness in a Population-}                           
+maxInd :: GEIndividual -> GEIndividual -> GEIndividual
+maxInd ind1 ind2 = if (fitness ind1) > (fitness ind2) then ind1 else ind2
 
+maximumInd :: Population -> GEIndividual
+maximumInd (ind:pop) = foldr maxInd ind pop
+
+phenotype2string :: [Symbol] -> String
+phenotype2string [] = ""
+phenotype2string (symbol:symbols) = symbol2string symbol ++ phenotype2string symbols
+  
+symbol2string :: Symbol -> String
+symbol2string (Terminal s) = s
+symbol2string (NonTerminal s) = s
+  
 {- Testing the functions-}
 main = do
   gen <- getStdGen
@@ -166,6 +184,7 @@ main = do
   let phen = genotype2phenotype (take (wraps * length cs) (cycle cs)) [startSymbol grammar] grammar
   print "Hello"
   print $ phen
+<<<<<<< HEAD
   print $ patternMatch (show phen) target
   print "goodbye!"
   print "test2"
@@ -176,6 +195,14 @@ main = do
   print $ evolve pop randNumber 10 randNumberD grammar
   --print $ "look at my pop!"
   --print $ createPop 3 randNumber
+=======
+  print $ phenotype2string phen
+  print $ patternMatch (show phen) "aa"
+  print $ evolve pop randNumber 10 randNumberD grammar
+  print $ "look at my pop!"
+  print $ createPop 3 randNumber
+  print $ maximumInd (evolve pop randNumber 10 randNumberD grammar)
+>>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
 {- Grammar used
 S -> SB | B
 B -> a | b
@@ -204,6 +231,9 @@ data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
                              , rules :: Map (Symbol) [Production]
                              , startSymbol :: (Symbol)
                              } deriving (Show, Eq)
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 0816ba66b11be17591a78cb6f5eaccc0c87c5515
