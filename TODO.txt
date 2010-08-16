@@ -1,5 +1,7 @@
 --TODO
---Use the create population function instead of just defining 2 individuals
+--Use the create population function instead of just defining 2
+  individuals
+--Evaluera den initala populationen
 --Generalise functions, use HOFs, e.g. operate function
 --Functions for creating and reseting individuals
 --Parse text file
@@ -8,7 +10,8 @@
 --Use Maybe
 --Compare for GEIndividual
 --Difference between type and data
---Minimize instead of Maximize
 --Problem where code is generated
 --Test parallelization
---Put op in front of generational and tournament
+--Make Tests? Instead of all in main
+--Error when running compiled Fungeable, the program stalls
+--There is an error when using the random numbers they get reused.
