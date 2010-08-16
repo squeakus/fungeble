@@ -6,20 +6,56 @@ import Debug.Trace
 
 
 {-properties-}
-defaultFitness = 100
-popSize = 100
-chromosomeSize = 5
-mutationRate = 0.1
+defaultFitness = 100000
+popSize = 10
+generations = 10
+chromosomeSize = 100
+mutationRate = 0.01
 crossoverRate = 0.7
-patternMatchTarget = "aba"
+patternMatchTarget = "abababab"
 tournamentSize = 3
 eliteSize = 1
+
+{- Grammar used
+S -> SB | B
+B -> a | b
+-}
+
+{- Data for GEIndividual -}
+--data Individual = GEIndividual [Int]  
+--                  | GEIndividual [Int] [Symbol] 
+--                  | GEIndividual [Int] [Symbol] Int
+--                  | GEIndividual [Int] [Symbol] Int Int 
+  
+data GEIndividual = GEIndividual { genotype :: [Int]
+                                 , phenotype :: [Symbol]
+                                 , fitness :: Int
+                                 , usedCodons :: Int
+                                 } deriving (Show, Eq)
+                                            
+{- Type for population-}
+type Population = [GEIndividual]
+
+{-Type for terminal-}
+type Terminal s = s
+{- Type for Non Terminal-}
+type NonTerminal s = s
+{- Type for Production-}
+type Production = [Symbol]
+{-Data for symbol-}
+data Symbol = Terminal String| NonTerminal String deriving (Show, Eq, Ord)
+{- Data for BNF Grammar-}
+data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
+                             , nonTerminals :: Set (NonTerminal String)
+                             , rules :: Map (Symbol) [Production]
+                             , startSymbol :: (Symbol)
+                             } deriving (Show, Eq)
 
 {- Calls mutate on the population. Resets the individual since a
  change should occur. TODO (Could be smarter an verify if a reset is needed)-}
 mutateOp :: Population -> [Float] -> [Int] -> Population
 mutateOp [] _ _ = []
-mutateOp (ind:pop) rndDs rndIs = (createIndiv (mutate'' (genotype ind) rndDs rndIs)) : mutateOp pop rndDs rndIs
+mutateOp (ind:pop) rndDs rndIs = (createIndiv (mutate'' (genotype ind) (drop (length (genotype ind)) rndDs) (drop (length (genotype ind)) rndIs))) : mutateOp pop rndDs rndIs
 
 {- Mutate a genotype by uniformly changing the integer. TODO The
  mutation value is hard coded -}
@@ -30,12 +66,12 @@ mutate'' _ _ [] = []
 mutate'' (c:cs) (rndD:rndDs) (rndI:rndIs) = (if rndD > mutationRate then c else rndI) : mutate'' cs rndDs rndIs
 
 {- Calls crossover on the population TODO How does it handle oddnumber
- sized populations? Fold? Smarter resetting values in individual-}
+ sized populations? Fold? Smarter resetting values in individual TODO hardcoding rnd drop-}
 xoverOp :: Population -> [Float] -> Population
 xoverOp [] _ = []
 xoverOp (ind1:ind2:pop) rndDs = 
-  let (child1, child2) = xover (genotype ind1,genotype ind2) rndDs
-  in (createIndiv child1): (createIndiv child2) : xoverOp pop rndDs
+  let (child1, child2) = xover (genotype ind1,genotype ind2) (take 3 rndDs)
+  in (createIndiv child1): (createIndiv child2) : xoverOp pop (drop 3 rndDs)
 xoverOp (ind1:[]) rndDs = [ind1]         
 
 {- Singlepoint crossover, crossover porbability is hardcoded-}
@@ -47,7 +83,8 @@ xover (p1,p2) (rndD:rndDs) =
   if rndD > crossoverRate
      -- Remove the used random values for the rndDs for the xopoints calls
      then let xopoint1 = xopoint rndDs p1; xopoint2 = xopoint (drop 1 rndDs) p2
-          in (take xopoint1 p1 ++ drop xopoint2 p2, take xopoint2 p2 ++ drop xopoint1 p1)
+          in trace ("xo:" ++ show rndD ++ ">" ++ show crossoverRate ++ show (take 3 rndDs))
+           (take xopoint1 p1 ++ drop xopoint2 p2, take xopoint2 p2 ++ drop xopoint1 p1)
      else (p1, p2)
           
 {- Utility function for getting crossover point TODO Catch errors -}
@@ -55,12 +92,12 @@ xopoint :: [Float] -> [Int] -> Int
 xopoint (rnd:rndDs) codons = round $ (rnd) * (fromIntegral $ length codons)
 
 {- Tournament selection on a population, counting the individuals via the cnt variable TODO Better recursion?-}
-tournamentSelection :: Int -> Population -> [Int] -> Int -> Population
-tournamentSelection 0 _ _ _ = []
-tournamentSelection _ [] _ _ = error "Empty population"
-tournamentSelection _ _ [] _ = error "Empty rnd"
-tournamentSelection _ _ _ 0 = error "Zero tournament size" --What about minus?
-tournamentSelection cnt pop rndIs tournamentSize = (maximumInd $ selectIndividuals rndIs pop tournamentSize) : tournamentSelection (cnt - 1) pop (drop tournamentSize rndIs) tournamentSize 
+tournamentSelectionOp :: Int -> Population -> [Int] -> Int -> Population
+tournamentSelectionOp 0 _ _ _ = []
+tournamentSelectionOp _ [] _ _ = error "Empty population"
+tournamentSelectionOp _ _ [] _ = error "Empty rnd"
+tournamentSelectionOp _ _ _ 0 = error "Zero tournament size" --What about minus?
+tournamentSelectionOp cnt pop rndIs tournamentSize = (bestInd (selectIndividuals rndIs pop tournamentSize) minInd) : tournamentSelectionOp (cnt - 1) pop (drop tournamentSize rndIs) tournamentSize 
 
 {-Selection with replacement TODO (Use parital application for tournament
 selection and select individuals?-}
@@ -71,8 +108,19 @@ selectIndividuals [] _ _ = error "Empty rnd"
 selectIndividuals (rnd:rndIs) pop tournamentSize = (pop !! (rnd `mod` (length pop) ) ) : selectIndividuals rndIs pop (tournamentSize - 1)
 
 {- Generational replacement with elites. TODO error catching-}
-generationalReplacement :: Population -> Population -> Int -> Population
-generationalReplacement orgPop newPop elites = (take elites $ sortBy sortInd orgPop) ++ (take (length newPop - elites) $ sortBy sortInd newPop)
+generationalReplacementOp :: Population -> Population -> Int -> Population
+generationalReplacementOp orgPop newPop elites = 
+  let pop = (take elites $ sortBy sortInd orgPop ) ++ (take (length newPop - elites) $ sortBy sortInd newPop )
+  in trace (showPop orgPop ++ "\n" ++ showPop newPop ++ "\n" ++ showPop pop ++ "\n")
+     pop
+
+showInd :: GEIndividual -> String
+--showInd (GEIndividual genotype phenotype fitness usedCodons) = show genotype ++ ":" ++ show fitness
+showInd (GEIndividual genotype phenotype fitness usedCodons) = show fitness
+
+showPop :: Population -> String
+showPop [] = ""
+showPop (ind:pop) = showInd ind ++ ":" ++ showPop pop
 
 {- Pattern matching two strings. If a position is unmatched 1 is added, matching strings return 0-}
 patternMatch :: String -> String -> Int
@@ -110,9 +158,9 @@ genotype2phenotype _ [] _ = []
 genotype2phenotype (c:cs) (s:ss) grammar = 
   if (member s (rules grammar))
   then let rule = (rules grammar) ! s; sizeR = length rule;
-    in --trace (show c ++ ":" ++ s ++ ":" ++ show rule ++ ":" ++ show ss ++ ":" ++ show cs) 
+    in --trace (show c ++ ":" ++ show s ++ ":" ++ show rule ++ ":" ++ show ss ++ ":" ++ show cs) 
        genotype2phenotype (if sizeR > 1 then cs else (c:cs)) ( (rule !! (c `mod` sizeR) ) ++ ss) grammar 
-  else --trace (show c ++ ":" ++ s) 
+  else --trace (show c ++ ":" ++ show s) 
        s : genotype2phenotype (c:cs) ss grammar
        
 {- Evolve the population recursively counting with genptype and
@@ -121,14 +169,14 @@ generation. Hard coding tournament size and elite size-}
 evolve :: Population -> [Int] -> Int -> [Float] -> BNFGrammar -> Population
 evolve pop _ 0 _ _ = []
 evolve [] _ _ _ _ = error "Empty population"
-evolve pop rndIs gen rndDs grammar = maximumInd pop : 
+evolve pop rndIs gen rndDs grammar = bestInd pop minInd : 
                                      evolve (
-                                       generationalReplacement pop (
+                                       generationalReplacementOp pop (
                                           patternMatchOp (
                                              mappingOp ( 
                                                 mutateOp (
                                                    xoverOp (
-                                                      tournamentSelection (length pop) pop rndIs tournamentSize) 
+                                                      tournamentSelectionOp (length pop) pop rndIs tournamentSize) 
                                                    rndDs) 
                                                 rndDs rndIs) 
                                              grammar)
@@ -145,10 +193,17 @@ sortInd ind1 ind2
                               
 {- Utility for finding the maximum fitness in a Population-}                           
 maxInd :: GEIndividual -> GEIndividual -> GEIndividual
-maxInd ind1 ind2 = if (fitness ind1) > (fitness ind2) then ind1 else ind2
-
-maximumInd :: Population -> GEIndividual
-maximumInd (ind:pop) = foldr maxInd ind pop
+maxInd ind1 ind2 
+  | fitness ind1 > fitness ind2 = ind1
+  | otherwise = ind2
+{- Utility for finding the minimum fitness in a Population-}                           
+minInd :: GEIndividual -> GEIndividual -> GEIndividual
+minInd ind1 ind2 
+  | fitness ind1 < fitness ind2 = ind1
+  | otherwise = ind2
+                
+bestInd :: Population -> (GEIndividual -> GEIndividual -> GEIndividual) -> GEIndividual
+bestInd (ind:pop) best = foldr best ind pop
 
 phenotype2string :: [Symbol] -> String
 phenotype2string [] = ""
@@ -161,57 +216,19 @@ symbol2string (NonTerminal s) = s
 {- Testing the functions-}
 main = do
   gen <- getStdGen
-  let randNumber = randomRs (1,10) gen :: [Int]
+  let randNumber = randomRs (1,127) gen :: [Int]
   let randNumberD = randomRs (0,1) gen :: [Float]
   let cs = [100..104]
-  print $ take 5 randNumberD
-  print $ mutate'' cs randNumberD randNumber
-  print $ xover (cs, [200..204]) randNumberD
-  let pop = [createIndiv [3..10] , createIndiv [5..11]]
-  print $ tournamentSelection (length pop) pop randNumber 3
+--  print $ take 5 randNumberD
+--  print $ mutate'' cs randNumberD randNumber
+--  print $ xover (cs, [200..204]) randNumberD
+  let pop = createPop popSize randNumber
+--  print $ tournamentSelectionOp (length pop) pop randNumber 3
   let newPop = [createIndiv [1..10], createIndiv [1..10]]
-  print $ generationalReplacement pop newPop 2
+--  print $ generationalReplacementOp pop newPop 2
   let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
   let grammar = (BNFGrammar ts nts (Data.Map.fromList [ ((NonTerminal "S"), [[(NonTerminal "S"), (NonTerminal "B")], [(NonTerminal "B")]]), ((NonTerminal "B"), [[(Terminal "a")],[(Terminal "b")]])]) s); wraps = 2
-  let phen = genotype2phenotype (take (wraps * length cs) (cycle cs)) [startSymbol grammar] grammar
-  print $ phen
-  print $ phenotype2string phen
-  print $ patternMatch (show phen) "aa"
-  print $ evolve pop randNumber 10 randNumberD grammar
-  print $ "look at my pop!"
-  print $ createPop 3 randNumber
-  print $ maximumInd (evolve pop randNumber 10 randNumberD grammar)
-{- Grammar used
-S -> SB | B
-B -> a | b
--}
-
-{- Data for GEIndividual -}
---data Individual = GEIndividual [Int]  
---                  | GEIndividual [Int] [Symbol] 
---                  | GEIndividual [Int] [Symbol] Int
---                  | GEIndividual [Int] [Symbol] Int Int 
-  
-data GEIndividual = GEIndividual { genotype :: [Int]
-                                 , phenotype :: [Symbol]
-                                 , fitness :: Int
-                                 , usedCodons :: Int
-                                 } deriving (Show, Eq)
-                                            
-{- Type for population-}
-type Population = [GEIndividual]
-
-{-Type for terminal-}
-type Terminal s = s
-{- Type for Non Terminal-}
-type NonTerminal s = s
-{- Type for Production-}
-type Production = [Symbol]
-{-Data for symbol-}
-data Symbol = Terminal String| NonTerminal String deriving (Show, Eq, Ord)
-{- Data for BNF Grammar-}
-data BNFGrammar = BNFGrammar {terminals :: Set (Terminal String)
-                             , nonTerminals :: Set (NonTerminal String)
-                             , rules :: Map (Symbol) [Production]
-                             , startSymbol :: (Symbol)
-                             } deriving (Show, Eq)
+  let bestInds = (evolve pop randNumber generations randNumberD grammar) 
+--  print $ bestInds
+  print $ bestInd bestInds minInd
+--  print "Done"
