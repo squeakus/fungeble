@@ -126,12 +126,12 @@ showPop (ind:pop) = showInd ind ++ ":" ++ showPop pop
 patternMatch :: String -> String -> Int
 patternMatch [] target = length target
 patternMatch phenotype [] = length phenotype
-patternMatch (p:phenotype) (f:target) = (if p /= f then 1 else 0) + patternMatch phenotype target
+patternMatch (p:phenotype) (f:target) = trace (show [p]++[f]) (if p /= f then 1 else 0) + patternMatch phenotype target
 
 {- Pattern matches the population. String target is hardcoded-}
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
-patternMatchOp (ind:pop) = (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
+patternMatchOp (ind:pop) = trace(show "matching indiv") (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
 
 {- Mapping the entire population. Default fitness is hardcoded. TODO
  Wrapping is done by increasing the size of the input explicitly by
@@ -162,7 +162,7 @@ genotype2phenotype (c:cs) (s:ss) grammar =
        genotype2phenotype (if sizeR > 1 then cs else (c:cs)) ( (rule !! (c `mod` sizeR) ) ++ ss) grammar 
   else --trace (show c ++ ":" ++ show s) 
        s : genotype2phenotype (c:cs) ss grammar
-       
+
 {- Evolve the population recursively counting with genptype and
 returning a population of the best individuals of each
 generation. Hard coding tournament size and elite size-}
@@ -219,11 +219,12 @@ main = do
   let randNumber = randomRs (1,127) gen :: [Int]
   let randNumberD = randomRs (0,1) gen :: [Float]
   let cs = [100..104]
---  print $ take 5 randNumberD
---  print $ mutate'' cs randNumberD randNumber
---  print $ xover (cs, [200..204]) randNumberD
+  print $ take 5 randNumberD
+  --print $ mutate'' cs randNumberD randNumber
+  --print $ xover (cs, [200..204]) randNumberD
   let pop = createPop popSize randNumber
---  print $ tournamentSelectionOp (length pop) pop randNumber 3
+--  let pop = [createIndiv [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1] , createIndiv [5..11]]
+  print $ tournamentSelectionOp (length pop) pop randNumber 3
   let newPop = [createIndiv [1..10], createIndiv [1..10]]
 --  print $ generationalReplacementOp pop newPop 2
   let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
