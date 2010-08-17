@@ -1,3 +1,6 @@
+import Random
+import Control.Monad.State
+import Monad
 import System.Random
 import Data.List  
 import Data.Map (Map, member, (!), size, elemAt, fromList)
@@ -7,8 +10,8 @@ import Debug.Trace
 
 {-properties-}
 defaultFitness = 100000
-popSize = 10
-generations = 10
+popSize = 100
+generations = 100
 chromosomeSize = 100
 mutationRate = 0.01
 crossoverRate = 0.7
@@ -63,7 +66,8 @@ mutate'' :: [Int] -> [Float] -> [Int] -> [Int]
 mutate'' [] _ _ = []
 mutate'' _ [] _ = []
 mutate'' _ _ [] = []
-mutate'' (c:cs) (rndD:rndDs) (rndI:rndIs) = (if rndD > mutationRate then c else rndI) : mutate'' cs rndDs rndIs
+mutate'' (c:cs) (rndD:rndDs) (rndI:rndIs) = --trace("mu:" ++ show rndD ++ ">" ++ show mutationRate)
+                                            (if rndD > mutationRate then c else rndI) : mutate'' cs rndDs rndIs
 
 {- Calls crossover on the population TODO How does it handle oddnumber
  sized populations? Fold? Smarter resetting values in individual TODO hardcoding rnd drop-}
@@ -83,7 +87,7 @@ xover (p1,p2) (rndD:rndDs) =
   if rndD > crossoverRate
      -- Remove the used random values for the rndDs for the xopoints calls
      then let xopoint1 = xopoint rndDs p1; xopoint2 = xopoint (drop 1 rndDs) p2
-          in trace ("xo:" ++ show rndD ++ ">" ++ show crossoverRate ++ show (take 3 rndDs))
+          in --trace ("xo:" ++ show rndD ++ ">" ++ show crossoverRate ++ show (take 3 rndDs))
            (take xopoint1 p1 ++ drop xopoint2 p2, take xopoint2 p2 ++ drop xopoint1 p1)
      else (p1, p2)
           
@@ -111,7 +115,7 @@ selectIndividuals (rnd:rndIs) pop tournamentSize = (pop !! (rnd `mod` (length po
 generationalReplacementOp :: Population -> Population -> Int -> Population
 generationalReplacementOp orgPop newPop elites = 
   let pop = (take elites $ sortBy sortInd orgPop ) ++ (take (length newPop - elites) $ sortBy sortInd newPop )
-  in trace (showPop orgPop ++ "\n" ++ showPop newPop ++ "\n" ++ showPop pop ++ "\n")
+  in --trace (showPop orgPop ++ "\n" ++ showPop newPop ++ "\n" ++ showPop pop ++ "\n")
      pop
 
 showInd :: GEIndividual -> String
@@ -126,12 +130,14 @@ showPop (ind:pop) = showInd ind ++ ":" ++ showPop pop
 patternMatch :: String -> String -> Int
 patternMatch [] target = length target
 patternMatch phenotype [] = length phenotype
-patternMatch (p:phenotype) (f:target) = trace (show [p]++[f]) (if p /= f then 1 else 0) + patternMatch phenotype target
+patternMatch (p:phenotype) (f:target) = --trace (show [p]++[f]) 
+                                        (if p /= f then 1 else 0) + patternMatch phenotype target
 
 {- Pattern matches the population. String target is hardcoded-}
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
-patternMatchOp (ind:pop) = trace(show "matching indiv") (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
+patternMatchOp (ind:pop) = --trace(show "matching indiv") 
+                           (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
 
 {- Mapping the entire population. Default fitness is hardcoded. TODO
  Wrapping is done by increasing the size of the input explicitly by
@@ -165,7 +171,7 @@ genotype2phenotype (c:cs) (s:ss) grammar =
 
 {- Evolve the population recursively counting with genptype and
 returning a population of the best individuals of each
-generation. Hard coding tournament size and elite size-}
+generation. Hard coding tournament size and elite size TODO drop a less arbitrary value of random values than 10-}
 evolve :: Population -> [Int] -> Int -> [Float] -> BNFGrammar -> Population
 evolve pop _ 0 _ _ = []
 evolve [] _ _ _ _ = error "Empty population"
@@ -182,7 +188,7 @@ evolve pop rndIs gen rndDs grammar = bestInd pop minInd :
                                              grammar)
                                           ) 
                                        eliteSize)
-                                     rndIs (gen - 1) rndDs grammar
+                                     (drop (popSize * 10) rndIs) (gen - 1) (drop (popSize * 10) rndDs) grammar
                                 
 {- Utility for sorting GEIndividuals-}
 sortInd :: GEIndividual -> GEIndividual -> Ordering
@@ -224,7 +230,7 @@ main = do
   --print $ xover (cs, [200..204]) randNumberD
   let pop = createPop popSize randNumber
 --  let pop = [createIndiv [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1] , createIndiv [5..11]]
-  print $ tournamentSelectionOp (length pop) pop randNumber 3
+--  print $ tournamentSelectionOp (length pop) pop randNumber 3
   let newPop = [createIndiv [1..10], createIndiv [1..10]]
 --  print $ generationalReplacementOp pop newPop 2
   let ts = Data.Set.fromList ["a","b"]; nts = Data.Set.fromList ["S", "B"]; s = (NonTerminal "S")
