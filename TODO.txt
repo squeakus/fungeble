@@ -14,4 +14,3 @@
 --Test parallelization
 --Make Tests? Instead of all in main
 --Error when running compiled Fungeable, the program stalls
---There is an error when using the random numbers they get reused.
