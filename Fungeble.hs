@@ -84,16 +84,18 @@ xover ([],_) _ = ([],[])
 xover (_,[]) _ = ([],[])
 xover (_,_) [] = error "Empty rnd"
 xover (p1,p2) (rndD:rndDs) =  
-  if rndD > crossoverRate
+  if rndD < crossoverRate
      -- Remove the used random values for the rndDs for the xopoints calls
      then let xopoint1 = xopoint rndDs p1; xopoint2 = xopoint (drop 1 rndDs) p2
           in --trace ("xo:" ++ show rndD ++ ">" ++ show crossoverRate ++ show (take 3 rndDs))
            (take xopoint1 p1 ++ drop xopoint2 p2, take xopoint2 p2 ++ drop xopoint1 p1)
      else (p1, p2)
           
-{- Utility function for getting crossover point TODO Catch errors -}
+{- Utility function for getting crossover point TODO Make nicerway of returning 1 as a minimum value -}
 xopoint :: [Float] -> [Int] -> Int
-xopoint (rnd:rndDs) codons = round $ (rnd) * (fromIntegral $ length codons)
+xopoint [] _ = error "Empty rnd"
+xopoint _ [] = error "Empty genotype" 
+xopoint (rnd:rndDs) codons = max 1 (round $ (rnd) * (fromIntegral $ length codons))
 
 {- Tournament selection on a population, counting the individuals via the cnt variable TODO Better recursion?-}
 tournamentSelectionOp :: Int -> Population -> [Int] -> Int -> Population
