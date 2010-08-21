@@ -1,3 +1,4 @@
+import Control.Parallel
 import Random
 import Control.Monad.State
 import Monad
@@ -12,10 +13,10 @@ import Debug.Trace
 defaultFitness = 100000
 popSize = 100
 generations = 100
-chromosomeSize = 100
+chromosomeSize = 200
 mutationRate = 0.01
 crossoverRate = 0.7
-patternMatchTarget = "abababab"
+patternMatchTarget = "abababababababababababababababababababababababababababababababab"
 tournamentSize = 3
 eliteSize = 1
 
@@ -122,7 +123,7 @@ generationalReplacementOp orgPop newPop elites =
 
 showInd :: GEIndividual -> String
 --showInd (GEIndividual genotype phenotype fitness usedCodons) = show genotype ++ ":" ++ show fitness
-showInd (GEIndividual genotype phenotype fitness usedCodons) = show fitness
+showInd (GEIndividual genotype phenotype fitness usedCodons) = "Fit:" ++ show fitness
 
 showPop :: Population -> String
 showPop [] = ""
@@ -135,12 +136,19 @@ patternMatch phenotype [] = length phenotype
 patternMatch (p:phenotype) (f:target) = --trace (show [p]++[f]) 
                                         (if p /= f then 1 else 0) + patternMatch phenotype target
 
-{- Pattern matches the population. String target is hardcoded-}
+{- Pattern matches the population. -}
 patternMatchOp :: Population -> Population
 patternMatchOp [] = []
 patternMatchOp (ind:pop) = --trace(show "matching indiv") 
                            (GEIndividual (genotype ind) (phenotype ind) (patternMatch (phenotype2string (phenotype ind)) patternMatchTarget) 0) : patternMatchOp pop
 
+{- Pattern matches the population in parallel. TODO is it really parallel, adapted form http://www.haskell.org/ghc/docs/6.6/html/users_guide/lang-parallel.html-}
+patternMatchOpPar :: Population -> Population
+patternMatchOpPar pop | length pop <= 0 = []
+                   | length pop > 0 = par ind1 (seq pop1 (ind1 : pop1) ) 
+  where ind1 = (GEIndividual (genotype (head pop)) (phenotype (head pop)) (patternMatch (phenotype2string (phenotype (head pop))) patternMatchTarget) 0)  
+        pop1 = (patternMatchOp (tail pop)) 
+                                   
 {- Mapping the entire population. Default fitness is hardcoded. TODO
  Wrapping is done by increasing the size of the input explicitly by
  (take (wraps * length genotype) (cycle genotypr)) -}
@@ -239,5 +247,5 @@ main = do
   let grammar = (BNFGrammar ts nts (Data.Map.fromList [ ((NonTerminal "S"), [[(NonTerminal "S"), (NonTerminal "B")], [(NonTerminal "B")]]), ((NonTerminal "B"), [[(Terminal "a")],[(Terminal "b")]])]) s); wraps = 2
   let bestInds = (evolve pop randNumber generations randNumberD grammar) 
 --  print $ bestInds
-  print $ bestInd bestInds minInd
+  print $ showInd $ bestInd bestInds minInd
 --  print "Done"
